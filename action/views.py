@@ -1,7 +1,10 @@
 from rest_framework.views import APIView
-from rest_framework.response import Response
+from django.http import JsonResponse
 from rest_framework import status
 from slack.errors import SlackApiError
+from rest_framework.request import Request
+import logging
+from action.script import query_parser
 
 from zwapSlackProva import settings
 import slack
@@ -13,8 +16,7 @@ SLACK_VERIFICATION_TOKEN = settings.SLACK_VERIFICATION_TOKEN
 
 class Events(APIView):
 
-    def post(self, request, *args, **kwargs):
-
+    def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         slack_message = request.data
 
         # if slack_message.get('token') != SLACK_VERIFICATION_TOKEN:
@@ -22,7 +24,7 @@ class Events(APIView):
 
         # For the connection challenge, just return a 200
         if slack_message.get('type') == 'url_verification':
-            return Response(data=slack_message, status=status.HTTP_200_OK)
+            return JsonResponse({'status': status.HTTP_200_OK, 'data': slack_message})
 
             # greet bot
         if 'event' in slack_message:
@@ -30,7 +32,7 @@ class Events(APIView):
 
             # ignore bots own message
             if event_message.get('subtype') == 'bot_message':
-                return Response(status=status.HTTP_200_OK)
+                return JsonResponse({'status': status.HTTP_200_OK})
 
             # process user's message
             user = event_message.get('user')
@@ -39,14 +41,14 @@ class Events(APIView):
             bot_text = 'Hi <@{}> :wave:'.format(user)
             if 'hi' in text.lower():
                 client.chat_postMessage(channel='#test', text='Hello world!')
-                return Response(status=status.HTTP_200_OK)
+                return JsonResponse({'status': status.HTTP_200_OK})
 
-        return Response(status=status.HTTP_200_OK)
+        return JsonResponse({'status': status.HTTP_200_OK})
 
 
 class TopZwappers(APIView):
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         data = request.data
         text = data.get('text')
 
@@ -72,34 +74,34 @@ class TopZwappers(APIView):
             # Sending the csv file to the channel
             result = client.files_upload(channels='#test', file='zwappers.csv')
         except SlackApiError as e:
-            print(e.response)
+            logging.debug(e)
         except ValueError:
             client.chat_postMessage(channel='#test', text='Argument must be an integer')
 
-        return Response(data='top_zwappers', status=status.HTTP_200_OK)
+        return JsonResponse({'data': 'top_zwappers', 'status': status.HTTP_200_OK})
 
 
 class PostmarkTemplateEmail(APIView):
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         data = request.data
         text = data.get('text')
 
         try:
 
             postmark_template_id, csv_file_path = int(text.split()[0]), text.split()[1]
-            print(postmark_template_id, csv_file_path)
+            logging.debug(postmark_template_id, csv_file_path)
 
             # Read the csv file
             with open(csv_file_path, 'r') as csvfile:
                 reader = csv.reader(csvfile)
                 for row in reader:
-                    print(row)
+                    logging.debug(row)
                     # --------------------------------------------------
                     # Logic for sending the email
                     # ----------------------------------------------------
 
-            # Confirmation of everithing went well
+            # Confirmation of everything went well
             client.chat_postMessage(channel='#test', text="Emails have been sent correctly via PostMark")
 
         except IndexError:
@@ -108,29 +110,29 @@ class PostmarkTemplateEmail(APIView):
         except FileNotFoundError:
             client.chat_postMessage(channel='#test', text="The csv file doesn't exist")
         except SlackApiError as e:
-            print(e.response)
+            logging.debug(e.response)
         except ValueError:
             client.chat_postMessage(channel='#test', text="ID argument must be an integer")
 
-        return Response(data='postmark_template_email', status=status.HTTP_200_OK)
+        return JsonResponse({'data': 'postmark_template_email', 'status': status.HTTP_200_OK})
 
 
 class PostmarkPlainTextEmail(APIView):
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         data = request.data
         text = data.get('text')
 
         try:
 
             html_template_id, csv_file_path = int(text.split()[0]), text.split()[1]
-            print(html_template_id, csv_file_path)
+            logging.debug(html_template_id, csv_file_path)
 
             # Read the csv file
             with open(csv_file_path, 'r') as csvfile:
                 reader = csv.reader(csvfile)
                 for row in reader:
-                    print(row)
+                    logging.debug(row)
                     # --------------------------------------------------
                     # Logic for sending the email
                     # ----------------------------------------------------
@@ -144,19 +146,39 @@ class PostmarkPlainTextEmail(APIView):
         except FileNotFoundError:
             client.chat_postMessage(channel='#test', text="The csv file doesn't exist")
         except SlackApiError as e:
-            print(e.response)
+            logging.debug(e.response)
         except ValueError:
             client.chat_postMessage(channel='#test', text="ID argument must be an integer")
 
-        return Response(data='postmark_template_email', status=status.HTTP_200_OK)
+        return JsonResponse({'data': 'postmark_plain_text_email', 'status': status.HTTP_200_OK})
 
-
-feature_types = ['open_to_tag', 'status_tag', 'n_meeting', 'n_matches', 'subscription_datetime', 'city', 'company',
-                 'role', 'gender', 'age']
 
 class QueryUsers(APIView):
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         # Get the text from the request
         data = request.data
         text = data.get('text')
+
+        if len(text) == 0:
+            client.chat_postMessage(channel='#test', text="Please, provide the query")
+
+        else:
+            # Create what needed to perform query
+            query = text.split()
+
+            # Check if the query is valid
+            valid, explaination = query_parser.query_checker(query)
+
+            print(valid, explaination)
+
+            if valid and False:
+                # Perform the query
+                result = query_parser.query_executor(query)
+
+                # Send the result to the channel
+                client.chat_postMessage(channel='#test', text=result)
+            else:
+                client.chat_postMessage(channel='#test', text=f'Error:{explaination}')
+
+        return JsonResponse({'data': 'query_user', 'status': status.HTTP_200_OK, 'text': text})

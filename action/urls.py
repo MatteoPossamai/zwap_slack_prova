@@ -11,17 +11,17 @@ urlpatterns = [
 
 
 """
-http://53a0-2001-b07-a5b-662a-a982-d45f-a305-1b48.ngrok.io/action/slack/events
+http://263f-93-37-209-24.ngrok.io/action/slack/events
 
 /top_zwappers
-http://53a0-2001-b07-a5b-662a-a982-d45f-a305-1b48.ngrok.io/action/top_zwappers/
+http://263f-93-37-209-24.ngrok.io/action/top_zwappers/
 
 /postmark_template_email
-http://5982-2001-b07-a5b-662a-a982-d45f-a305-1b48.ngrok.io/action/postmark_template_email/
+http://263f-93-37-209-24.ngrok.io/action/postmark_template_email/
 
 /postmark_plain_email
-http://5982-2001-b07-a5b-662a-a982-d45f-a305-1b48.ngrok.io/action/postmark_plain_email/
+http://263f-93-37-209-24.ngrok.io/action/postmark_plain_email/
 
 /query_users
-http://5982-2001-b07-a5b-662a-a982-d45f-a305-1b48.ngrok.io/action/query_users/
+http://263f-93-37-209-24.ngrok.io/action/query_users/
 """
