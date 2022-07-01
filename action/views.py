@@ -159,6 +159,7 @@ class QueryUsers(APIView):
         # Get the text from the request
         data = request.data
         text = data.get('text')
+        print('Arrived to the query users view')
 
         if len(text) == 0:
             client.chat_postMessage(channel='#test', text="Please, provide the query")
@@ -166,6 +167,8 @@ class QueryUsers(APIView):
         else:
             # Create what needed to perform query
             query = text.split()
+
+            client.chat_postMessage(channel='#test', text='Query check and perform is started')
 
             # Check if the query is valid
             valid, explaination = query_parser.query_checker(query)
