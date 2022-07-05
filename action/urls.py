@@ -7,6 +7,7 @@ urlpatterns = [
     path('postmark_template_email/', views.PostmarkTemplateEmail.as_view(), name='postmark_template_email'),
     path('postmark_plain_email/', views.PostmarkPlainTextEmail.as_view(), name='postmark_plain_email'),
     path('query_users/', views.QueryUsers.as_view(), name='query_users'),
+    path('link_nfc/', views.LinkNFC.as_view(), name='link_nfc'),
 ]
 
 
