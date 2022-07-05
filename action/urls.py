@@ -11,17 +11,19 @@ urlpatterns = [
 
 
 """
-http://799c-2001-b07-a5b-662a-f954-a366-b40f-45dc.ngrok.io/action/slack/events
+http://d46e-2001-b07-a5b-662a-3d2c-7c4e-74b2-3e2e.ngrok.io/action/slack/events
 
 /top_zwappers
 http://1c24-2001-b07-a5b-662a-a111-4046-2878-73ec.ngrok.io/action/top_zwappers/
 
 /postmark_template_email
-http://799c-2001-b07-a5b-662a-f954-a366-b40f-45dc.ngrok.io/action/postmark_template_email/
+http://4d0b-2001-b07-a5b-662a-5147-53ed-8080-60b4.ngrok.io/action/postmark_template_email/
 
 /postmark_plain_email
-http://799c-2001-b07-a5b-662a-f954-a366-b40f-45dc.ngrok.io/action/postmark_plain_email/
+http://4d0b-2001-b07-a5b-662a-5147-53ed-8080-60b4.ngrok.io/action/postmark_plain_email/
 
 /query_users
 http://5b03-2001-b07-a5b-662a-a111-4046-2878-73ec.ngrok.io/action/query_users/
+
+JRPC django
 """

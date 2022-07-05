@@ -5,13 +5,12 @@ from rest_framework import status
 from slack.errors import SlackApiError
 from rest_framework.request import Request
 import logging
-from action.script import query_parser, remote_file_reader
+from action.script.query_parser import query_checker, query_executor
+from action.script.remote_file_reader import read_remote_csv, read_remote_html, insert_params_into_html
 
 from zwapSlackProva import settings
 import slack
-import csv
-import requests
-from io import StringIO
+from email_client_api import PostmarkApi
 
 client = slack.WebClient(settings.OAUTH_ACCESS_TOKEN)
 SLACK_VERIFICATION_TOKEN = settings.SLACK_VERIFICATION_TOKEN
@@ -43,7 +42,7 @@ class Events(APIView):
             channel = event_message.get('channel')
             bot_text = 'Hi <@{}> :wave:'.format(user)
             if 'hi' in text.lower():
-                client.chat_postMessage(channel='#test', text='Hello world!')
+                client.chat_postMessage(channel='#test', text=bot_text)
                 return JsonResponse({'status': status.HTTP_200_OK})
 
         return JsonResponse({'status': status.HTTP_200_OK})
@@ -79,6 +78,7 @@ class TopZwappers(APIView):
             # Sending the csv file to the channel
             client.chat_postMessage(channels='#test', text=f'Here are the {number} top zwappers:')
             client.files_upload(channels='#test', file='templates/zwappers.csv')
+
         except SlackApiError as e:
             logging.debug(e)
         except ValueError:
@@ -88,7 +88,7 @@ class TopZwappers(APIView):
 
 
 class PostmarkTemplateEmail(APIView):
-    # https://drive.google.com/file/d/1OT7Vo2s9QpUCqxziwjFvwOkJSge9jPWg/view?usp=sharing
+    # /postmark_template_email  28473320 https://drive.google.com/file/d/1OT7Vo2s9QpUCqxziwjFvwOkJSge9jPWg/view?usp=sharing
 
     def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         data = request.data
@@ -97,17 +97,26 @@ class PostmarkTemplateEmail(APIView):
         try:
             postmark_template_id, csv_file_url = int(text.split()[0]), text.split()[1]
         except ValueError:
-            client.chat_postMessage(channel='#test', text='Argument must be an integer')
+            client.chat_postMessage(channel='#test', text='Second argument must be an integer')
 
         client.chat_postMessage(channel='#test', text='Sending email...')
 
         try:
-            df = remote_file_reader.read_remote_csv(csv_file_url)
+            df = read_remote_csv(csv_file_url)
+            postmark_session = PostmarkApi(server_token='de1408cd-a60b-4716-aa4c-1a2de7183524',
+                                           email_from='hello@zwap.in')
 
             for item in df.itertuples():
-                print(item.email)
-                # Send the email
-                # ------------------!!!!!!!!!!!!!!!!!!!!!
+                if isinstance(item.email, str):
+                    template_vars = item._asdict()
+
+                    email_template_data = postmark_session.prepare_batch_template(item.email, postmark_template_id,
+                                                                                  template_vars)
+                    print(email_template_data)
+                    email_status = postmark_session.send_template_email(email_template_data)
+
+                    if email_status.error_code != 0:
+                        client.chat_postMessage(channel='#test', text=f'Error sending email to {item.email}')
 
             # Confirmation of everything went well
             client.chat_postMessage(channel='#test', text="Emails have been sent correctly via PostMark")
@@ -126,7 +135,7 @@ class PostmarkTemplateEmail(APIView):
 
 
 class PostmarkPlainTextEmail(APIView):
-    # https://drive.google.com/file/d/1802XAvZ4zfbFdSo_z_-eDULirBjvOqrH/view?usp=sharing
+    # https://drive.google.com/file/d/1U3yqeWV3tq2bwxrScFPjI2N1ljJCnG0K/view?usp=sharing
 
     def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         data = request.data
@@ -137,13 +146,27 @@ class PostmarkPlainTextEmail(APIView):
         client.chat_postMessage(channel='#test', text='Sending email...')
 
         try:
-            df = remote_file_reader.read_remote_csv(csv_file_url)
-            template = remote_file_reader.read_remote_html(html_template_url)
+            df = read_remote_csv(csv_file_url)
+            template = read_remote_html(html_template_url)
+
+            postmark_session = PostmarkApi(server_token='de1408cd-a60b-4716-aa4c-1a2de7183524',
+                                           email_from='matteo@zwap.in')
 
             for item in df.itertuples():
-                pass
-                # Send the email
-                # ------------------!!!!!!!!!!!!!!!!!!!!!
+                if isinstance(item.email, str):
+                    template_vars = item._asdict()
+                    html = insert_params_into_html(template, item, template_vars)
+                    print(html, template_vars)
+
+                    """
+
+                    email_template_data = postmark_session.prepare_batch_plain_text(item.email)
+                    email_status = postmark_session.send_template_email(email_template_data)
+
+                    if email_status.error_code != 0:
+                        client.chat_postMessage(channel='#test', text=f'Error sending email to {item.email}')
+
+                    """
 
             # Confirmation of everything went well
             client.chat_postMessage(channel='#test', text="Emails have been sent correctly via PostMark")
@@ -179,13 +202,13 @@ class QueryUsers(APIView):
             client.chat_postMessage(channel='#test', text='Query check and perform is started')
 
             # Check if the query is valid
-            valid, explaination = query_parser.query_checker(query)
+            valid, explaination = query_checker(query)
 
             print(valid, explaination)
 
             if valid and False:
                 # Perform the query
-                result = query_parser.query_executor(query)
+                result = query_executor(query)
 
                 # Send the result to the channel
                 client.chat_postMessage(channel='#test', text=result)
@@ -199,12 +222,21 @@ class LinkNFC(APIView):
 
     def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         # Get the user
+        data = request.data
+        text = data.get('text')
+        try:
+            email = text.split()[0]
+        except IndexError:
+            client.chat_postMessage(channel='#test', text="Please, provide the user email")
 
         # Query the db to get the user's NFC
-        # ----------------------------------------------------
+        # ZwapUserModel.objects.filter(email=email).values('card_code')
 
-        result = 'X'
-        client.chat_postMessage(channel='#test', text='Link NFC of given user is the following:')
-        client.chat_postMessage(channel='#test', text=f'https://zwap.in/profile?card={result}')
+        if True:  # query.exists():
+            result = 'X'
+            client.chat_postMessage(channel='#test', text='Link NFC of given user is the following:')
+            client.chat_postMessage(channel='#test', text=f'https://zwap.in/profile?card={result}')
+        else:
+            client.chat_postMessage(channel='#test', text='User not found')
 
         return JsonResponse({'data': 'query_user', 'status': status.HTTP_200_OK})
