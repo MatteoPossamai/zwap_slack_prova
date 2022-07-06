@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.request import Request
-from action import client
+from action import client, SLACK_VERIFICATION_TOKEN
 
 from rest_framework.views import APIView
 
@@ -16,8 +16,8 @@ class Events(APIView):  # BaseApiView
         """
         slack_message = request.data
 
-        # if slack_message.get('token') != SLACK_VERIFICATION_TOKEN:
-        # return Response(status=status.HTTP_403_FORBIDDEN)
+        if slack_message.get('token') != SLACK_VERIFICATION_TOKEN:
+            return JsonResponse({'status': status.HTTP_403_FORBIDDEN})
 
         # Connection challenge, at first connection
         if slack_message.get('type') == 'url_verification':

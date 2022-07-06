@@ -11,7 +11,7 @@ from action import client
 from rest_framework.views import APIView
 
 
-class TopZwappers(APIView):
+class TopZwappers(APIView):  # BaseApiView
 
     def post(self, request: Request, *args, **kwargs) -> JsonResponse:
         data = request.data
